@@ -1,0 +1,37 @@
+docs/sidebar-validation.md
+  s_31bec9b2ab90a8::t_caa3ebc24e456f 1-21,24-28
+  s_31bec9b2ab90a8::t_1be9098098c0e8 22-23,29-38
+  s_31bec9b2ab90a8::t_c935400f98e7b6 39-40
+test/model.test.js
+  s_31bec9b2ab90a8::t_ddd38b5324e4d4 209,336-350
+  s_31bec9b2ab90a8::t_c858ea91e4b488 298-335,351-448
+user-messages/index.js
+  s_31bec9b2ab90a8::t_a9b4eb5a4b918f 5,7,20,36-42,45-46,72,96,122-127,165-166,168,172,175,180,195-196,208
+README.md
+  s_31bec9b2ab90a8::t_1be9098098c0e8 19
+  s_31bec9b2ab90a8::t_5126ad735891f8 3,9-10,14-18,29,95,98,100,112
+test/extension.test.js
+  s_31bec9b2ab90a8::t_a9b4eb5a4b918f 13,17,20-21,26-27,29-31,46,52
+user-messages/model.js
+  s_31bec9b2ab90a8::t_8b2a1ce34f61c0 49-54,67,87-92,119-120,221-295,371
+package.json
+  s_31bec9b2ab90a8::t_283ae74bbcd21d 3
+user-messages.ts
+  s_31bec9b2ab90a8::t_283ae74bbcd21d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "development:1.7.3",
+  "base_commit_sha": "f26bdef73ba4b1cb3a60b644fa5e7d2bfb0494d0",
+  "prompts": {},
+  "sessions": {
+    "s_31bec9b2ab90a8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17603-bc67-78b3-a456-d05e5089ea03",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "AI_BA <ai_ball@outlook.com>"
+    }
+  }
+}
