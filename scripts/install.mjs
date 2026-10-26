@@ -48,11 +48,12 @@ async function expectKind(path, kind, fs, optional = false) {
     return true;
 }
 
-/** Install only this extension. fs may be injected to exercise rollback in tests. */
+/** Install this extension; esm explicitly opts into repairing the shared module scope. */
 export async function install({
     dataDir = process.env.PI_POCKET_DIR || join(homedir(), ".pi-pocket"),
     sourceRoot = defaultSource,
     force = false,
+    esm = false,
     fs = nodeFs,
 } = {}) {
     const data = resolve(dataDir);
@@ -85,6 +86,36 @@ export async function install({
         throw new Error("User messages is already installed. Use --force to back it up and replace it.");
     }
 
+    let moduleConfig = null;
+
+    if (esm) {
+        const marker = join(extensions, "package.json");
+
+        await checkPath(marker, fs);
+        const markerExists = await expectKind(marker, "isFile", fs, true);
+        let config = {};
+
+        if (markerExists) {
+            try {
+                config = JSON.parse(await fs.readFile(marker, "utf8"));
+            } catch (error) {
+                throw new Error(`Cannot read extensions/package.json: ${error.message}`);
+            }
+
+            if (config === null || typeof config !== "object" || Array.isArray(config)) {
+                throw new Error("extensions/package.json must contain a JSON object.");
+            }
+        }
+
+        if (config.type !== "module") {
+            moduleConfig = `${JSON.stringify({ ...config, type: "module" }, null, 2)}\n`;
+
+            if (markerExists) {
+                existing.push("package.json");
+            }
+        }
+    }
+
     const backups = join(data, "extension-backups");
 
     if (existing.length) {
@@ -106,6 +137,10 @@ export async function install({
             await fs.copyFile(join(source, moduleName, file), join(staging, moduleName, file));
         }
 
+        if (moduleConfig !== null) {
+            await fs.writeFile(join(staging, "package.json"), moduleConfig);
+        }
+
         if (existing.length) {
             await fs.mkdir(backups, { recursive: true });
             backupDir = await fs.mkdtemp(join(backups, "user-messages-"));
@@ -116,8 +151,10 @@ export async function install({
             }
         }
 
-        // Put browser assets in place before exposing the server entry to Pocket's watcher.
-        for (const name of [...names].reverse()) {
+        // Publish the scope before the entry so the watcher can load the complete module.
+        const publish = [moduleName, ...(moduleConfig === null ? [] : ["package.json"]), names[0]];
+
+        for (const name of publish) {
             await fs.rename(join(staging, name), join(extensions, name));
             installed.push(name);
         }
@@ -152,7 +189,7 @@ export async function install({
         await fs.rm(staging, { recursive: true, force: true });
     }
 
-    return { extensions, backupDir };
+    return { extensions, backupDir, moduleScopeChanged: moduleConfig !== null };
 }
 
 export function parseArgs(args) {
@@ -163,6 +200,8 @@ export function parseArgs(args) {
 
         if (arg === "--force") {
             options.force = true;
+        } else if (arg === "--esm") {
+            options.esm = true;
         } else if (arg === "--help" || arg === "-h") {
             options.help = true;
         } else if (arg === "--dir") {
@@ -186,18 +225,35 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         const options = parseArgs(process.argv.slice(2));
 
         if (options.help) {
-            console.log("Usage: node scripts/install.mjs [--dir <Pi Pocket data directory>] [--force]");
+            console.log("Usage: node scripts/install.mjs [--dir <Pi Pocket data directory>] [--force] [--esm]");
             console.log("Default: PI_POCKET_DIR or ~/.pi-pocket. --force keeps a backup in extension-backups/.");
+            console.log("--esm sets extensions/package.json type to module for all drop-ins, preserving other fields and backing up any changed config. Restart Pi Pocket afterwards.");
         } else {
             const result = await install(options);
-
-            console.log(`Installed User messages in ${result.extensions}`);
 
             if (result.backupDir) {
                 console.log(`Previous version backed up in ${result.backupDir}`);
             }
 
-            console.log("In Pi Pocket, open Menu → Extensions → Installed and enable User messages.");
+            const { checkInstallation } = await import("./check-install.mjs");
+            const checked = await checkInstallation({ dataDir: dirname(result.extensions) });
+
+            if (!checked.ok) {
+                console.error(`Files were installed in ${result.extensions}, but the load check failed.`);
+                console.error(checked.error);
+                console.error("For an ESM-scope error, repair with: node scripts/install.mjs --force --esm");
+                console.error(`If you used --dir, retain that option and this data directory: ${dirname(result.extensions)}`);
+                console.error("After an ESM repair, restart the Pi Pocket server before enabling the extension.");
+                process.exitCode = 1;
+            } else {
+                console.log(`Installed and load-checked User messages in ${result.extensions}`);
+
+                if (options.esm) {
+                    console.log("ES module scope confirmed. Restart the Pi Pocket server before enabling the extension; switching it off/on does not clear Node's module cache.");
+                }
+
+                console.log("In Pi Pocket, open Menu → Extensions → Installed and enable User messages.");
+            }
         }
     } catch (error) {
         console.error(`${basename(process.argv[1])}: ${error.message}`);

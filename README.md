@@ -63,6 +63,28 @@ node scripts/install.mjs --force
 
 卸载时先在 Extensions 中关闭插件，再移除 `extensions/user-messages.ts` 和 `extensions/user-messages/`。不要删除其他扩展的文件。
 
+### 启用时报 `Unexpected token 'export'`
+
+插件使用 ES 模块。即使 Node 版本满足要求，扩展目录继承了 `"type": "commonjs"`，或 Node 禁用了模块自动识别，也会在启用时拒绝解析 `export`。此问题已在 Node 24.14.0 上复现。
+
+在插件源码目录执行以下命令，显式修复扩展目录的模块声明并重新安装：
+
+```sh
+node scripts/install.mjs --force --esm
+```
+
+如果之前指定了数据目录，仍需使用相同的 `--dir /path/to/pi-pocket-data`。`--esm` 会在 **整个扩展目录** 的 `package.json` 中设置 `"type": "module"`，保留其他字段，并备份已有配置。它也会影响此目录内其他 `.ts` / `.js` 扩展的模块识别；已有 CommonJS 自定义扩展需要先确认兼容。普通安装不会改这个共享配置。卸载本插件时也不要删除共享的 `package.json`。
+
+完成后，**重启 Pi Pocket 服务进程，再启用 User messages**。只刷新网页或切换插件开关不够：Node 会缓存先前失败时读到的模块配置。
+
+安装命令会用当前 Node 在独立进程中检查安装后的入口；也可只读检查：
+
+```sh
+node scripts/check-install.mjs
+```
+
+自定义目录同样添加 `--dir`。检查会显示 Node 版本、执行路径、实际插件路径、最近的 `package.json` 模块类型和加载结果，不输出账号配置或整个环境变量。请使用与 Pi Pocket 服务相同的 Node；本机检查通过不能证明另一台机器或另一 Node 服务进程已经修好。
+
 ## 使用
 
 1. 打开一个会话，选择 **Your messages**。也可按 Ctrl+K / ⌘+K，在启动器中搜索它。

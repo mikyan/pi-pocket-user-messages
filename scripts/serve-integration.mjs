@@ -16,6 +16,7 @@ export async function startIntegrationFixture({
     port = 8898,
     host = "127.0.0.2",
     messageCount = 205,
+    esm = false,
     watchFiles = true,
     log = console.log,
 } = {}) {
@@ -59,7 +60,7 @@ export async function startIntegrationFixture({
     })());
 
     try {
-        await install({ dataDir });
+        await install({ dataDir, esm });
         app = await openApp(scriptedModel(), dataDir);
         await app.setExtensionEnabled(owner(app), "user-messages.ts", true);
 
