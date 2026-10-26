@@ -1,6 +1,6 @@
 {
   "name": "pi-pocket-user-messages",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "description": "A user-message timeline and fork-point navigator for Pi Pocket",
   "type": "module",

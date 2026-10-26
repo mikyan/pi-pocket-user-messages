@@ -2,8 +2,9 @@ import { createMessageStore, filterMessages, previewText } from "./model.js";
 
 export const pocketApi = 1;
 
-const SHEET_ID = "user-messages";
+const PANEL_ID = "user-messages";
 const VISIBLE_BATCH = 100;
+const SYNC_INTERVAL = 5000;
 
 export default function setup(pocket) {
     const { html, useEffect, useState, useMemo } = pocket;
@@ -16,7 +17,7 @@ export default function setup(pocket) {
 
     pocket.style("style.css");
 
-    function YourMessages() {
+    function YourMessages({ close }) {
         if (!supported) {
             return html`<p class="error-box">Your messages requires Pi Pocket 0.21.0 or newer.</p>`;
         }
@@ -32,8 +33,17 @@ export default function setup(pocket) {
             const unsubscribe = store.subscribe(setState);
 
             store.start();
+            const sync = () => {
+                if (document.visibilityState === "visible") {
+                    void store.syncLatest();
+                }
+            };
+            const timer = setInterval(sync, SYNC_INTERVAL);
+            document.addEventListener("visibilitychange", sync);
 
             return () => {
+                clearInterval(timer);
+                document.removeEventListener("visibilitychange", sync);
                 unsubscribe();
                 store.dispose();
                 stores.delete(store);
@@ -59,7 +69,7 @@ export default function setup(pocket) {
 
         return html`
             <section class="um-outline" aria-label="Your messages">
-                <p class="um-help">Choose a message to jump to it. Tap it in the conversation, then choose <strong>Edit and send again</strong> to fork (if you can steer).</p>
+                <p class="um-help">Jump to a message. To fork, choose <strong>Edit and send again</strong> on the original message.</p>
                 ${state.notice && html`<p class="um-notice" role="status">${state.notice}</p>`}
                 <div class="um-toolbar">
                     <label class="um-search">
@@ -83,7 +93,7 @@ export default function setup(pocket) {
                     ${query.trim() ? `${filtered.length} matching · ` : ""}${state.messages.length} loaded · newest first
                     ${state.before ? " · older messages available" : ""}
                 </div>
-                ${hasSession && html`<p class="um-search-note muted small">Filter checks loaded message excerpts (up to 1,000 characters each). Load all to include older messages.</p>`}
+                ${hasSession && html`<p class="um-search-note muted small">New messages update automatically. Search checks loaded excerpts; load all to include older messages.</p>`}
                 ${state.error && html`
                     <div class="error-box" role="alert">
                         <p>${state.error}</p>
@@ -109,6 +119,12 @@ export default function setup(pocket) {
                                     if (pocket.conversationId() === state.conversationId) {
                                         const version = ++jumpVersion;
                                         setJumping(true);
+
+                                        // Narrow panels cover the transcript; desktop panels stay docked.
+                                        if (!window.matchMedia("(min-width: 1100px)").matches) {
+                                            close();
+                                        }
+
                                         await jumpToMessage(pocket, message.id, state.conversationId,
                                             () => !disposed && version === jumpVersion);
 
@@ -146,26 +162,23 @@ export default function setup(pocket) {
         `;
     }
 
-    pocket.sheet({ id: SHEET_ID, title: "Your messages", component: YourMessages, wide: true });
+    // Pocket owns docking, the close control, and persistence across tab reloads.
+    pocket.panel({ id: PANEL_ID, title: "Your messages", component: YourMessages, icon: "chat" });
     pocket.menu({
-        id: SHEET_ID,
+        id: PANEL_ID,
         label: "Your messages",
         hint: "Find a fork point",
         group: "session",
-        sheet: SHEET_ID,
+        panel: PANEL_ID,
     });
     pocket.launcher({
-        id: SHEET_ID,
+        id: PANEL_ID,
         label: "Your messages",
         detail: "Browse user prompts and jump to a fork point",
         icon: "chat",
         keywords: ["timeline", "outline", "fork", "prompts", "history", "用户消息", "分叉"],
-        sheet: SHEET_ID,
+        panel: PANEL_ID,
     });
-
-    if (typeof pocket.topbar === "function") {
-        pocket.topbar({ id: SHEET_ID, title: "Your messages", icon: "chat", sheet: SHEET_ID });
-    }
 
     return () => {
         disposed = true;
@@ -179,8 +192,8 @@ export default function setup(pocket) {
     };
 }
 
-// reveal closes the sheet itself; false can also mean another app jump won.
-// Never reopen our sheet over that newer navigation.
+// reveal keeps the desktop panel open; false can also mean another app jump won.
+// Never reopen a panel over that newer navigation.
 export async function jumpToMessage(pocket, id, conversationId, isActive = () => true) {
     const current = () => isActive() && pocket.conversationId() === conversationId;
 
@@ -192,7 +205,7 @@ export async function jumpToMessage(pocket, id, conversationId, isActive = () =>
         const revealed = await pocket.reveal(id);
 
         if (!revealed && current()) {
-            pocket.notify("info", "Jump cancelled or message unavailable. Open Your messages and refresh to try again.");
+            pocket.notify("info", "Jump cancelled or message unavailable. Refresh Your messages to try again.");
         }
 
         return revealed;
