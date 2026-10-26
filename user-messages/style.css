@@ -1,0 +1,63 @@
+.um-outline {
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 4px 2px 16px;
+}
+.um-outline p { margin: 0; }
+.um-help { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.um-toolbar { display: flex; align-items: stretch; gap: 8px; }
+.um-search { flex: 1; min-width: 0; }
+.um-search input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 16px;
+}
+.um-outline .button { min-height: 44px; }
+.um-outline :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.um-summary { font-size: 12px; color: var(--muted); }
+.um-search-note { line-height: 1.5; }
+.um-notice { padding: 10px; border-left: 3px solid var(--accent); font-size: 13px; }
+.um-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.um-list li { min-width: 0; }
+.um-message {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--text);
+    background: var(--card);
+    text-align: start;
+    font: inherit;
+    cursor: pointer;
+}
+.um-message:hover { border-color: var(--accent); }
+.um-message:disabled { cursor: wait; opacity: 0.65; }
+.um-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); }
+.um-author { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.um-meta time { flex-shrink: 0; }
+.um-preview { line-height: 1.5; overflow-wrap: anywhere; font-size: 14px; white-space: normal; }
+.um-jump { font-size: 11px; color: var(--accent); }
+.um-empty { color: var(--muted); padding: 24px 8px; text-align: center; }
+.um-footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.um-footer > span { flex: 1 1 100%; font-size: 13px; color: var(--muted); }
+.um-more { align-self: center; }
+.um-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 480px) {
+    .um-message { padding: 12px; }
+    .um-meta { flex-wrap: wrap; gap: 4px 12px; }
+    .um-footer .button { flex: 1; }
+}
