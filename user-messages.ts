@@ -1,6 +1,6 @@
 /**
  * Browse the current session's user messages and jump to a useful fork point.
- * Adds a searchable, paginated outline through Pi Pocket's browser extension API.
+ * Adds a persistent, searchable sidebar through Pi Pocket's browser extension API.
  */
 export const pocketApi = 1;
 

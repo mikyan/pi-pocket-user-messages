@@ -10,28 +10,29 @@ test("server registers just the browser module with view access", () => {
     assert.deepEqual(clients, [["user-messages", { access: "view" }]]);
 });
 
-test("browser entry registers the outline with menu, launcher and optional topbar", () => {
+test("browser entry uses a native persistent panel with menu and launcher actions", () => {
     const specs = {};
     const pocket = {
         style: (path) => { specs.style = path; },
-        sheet: (spec) => { specs.sheet = spec; },
+        panel: (spec) => { specs.panel = spec; },
         menu: (spec) => { specs.menu = spec; },
         launcher: (spec) => { specs.launcher = spec; },
-        topbar: (spec) => { specs.topbar = spec; },
+        sheet: () => assert.fail("The outline must not open as a transient sheet"),
+        topbar: () => assert.fail("Native panels already provide a topbar button"),
     };
     const cleanup = setup(pocket);
 
     assert.equal(specs.style, "style.css");
-    assert.equal(specs.sheet.title, "Your messages");
+    assert.equal(specs.panel.title, "Your messages");
+    assert.equal(specs.panel.wide, undefined);
 
-    for (const kind of ["menu", "launcher", "topbar"]) {
-        assert.equal(specs[kind].sheet, specs.sheet.id);
+    for (const kind of ["menu", "launcher"]) {
+        assert.equal(specs[kind].panel, specs.panel.id);
+        assert.equal(specs[kind].sheet, undefined);
     }
 
     assert.equal(typeof cleanup, "function");
     cleanup();
-    delete pocket.topbar;
-    assert.doesNotThrow(() => setup(pocket)());
 });
 
 function navigation(reveal) {
@@ -42,12 +43,13 @@ function navigation(reveal) {
         reveal: (id) => { calls.push(id); return reveal(id); },
         notify: (...notice) => notices.push(notice),
         openSheet: () => assert.fail("A jump must not reopen a sheet over newer app navigation"),
+        closePanel: () => assert.fail("A message jump must not close a docked panel"),
     };
 
     return { pocket, notices, calls };
 }
 
-test("jump uses the stable message ID and leaves sheet closing to Pocket", async () => {
+test("jump uses the stable message ID and keeps the docked panel open", async () => {
     const { pocket, notices, calls } = navigation(async () => true);
 
     assert.equal(await jumpToMessage(pocket, "123", 7), true);

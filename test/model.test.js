@@ -206,6 +206,7 @@ test("loadAll reads to the beginning and can be cancelled without losing loaded 
     await store.start();
     const all = store.loadAll();
     await settle();
+    assert.equal(await store.syncLatest(), false);
     store.cancelLoadAll();
     assert.equal(pocket.requests[1].signal.aborted, true);
     assert.equal(store.getSnapshot().loadingAll, false);
@@ -293,4 +294,155 @@ test("page size rejects values outside Pocket's supported range", () => {
     assert.throws(() => createMessageStore({}, { pageSize: 201 }), RangeError);
     assert.throws(() => createMessageStore({}, { pageSize: 0 }), RangeError);
     assert.throws(() => createMessageStore({}, { pageSize: 1.5 }), RangeError);
+});
+
+test("latest sync prepends new messages while retaining older pages and their cursor", async () => {
+    const pages = [page([4, 5], "older"), page([2, 3], "oldest"), page([5, 6], "head"), page([1])];
+    const pocket = host(() => pages.shift());
+    const store = createMessageStore(pocket, { pageSize: 2 });
+    await store.start();
+    await store.loadMore();
+    const previousRows = store.getSnapshot().messages;
+    await store.syncLatest();
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["6", "5", "4", "3", "2"]);
+    assert.equal(store.getSnapshot().before, "oldest");
+    assert.equal(store.getSnapshot().messages[1], previousRows[0]);
+    assert.equal(store.getSnapshot().loading, false);
+    assert.equal(pocket.requests[2].before, null);
+    await store.loadMore();
+    assert.equal(pocket.requests[3].before, "oldest");
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["6", "5", "4", "3", "2", "1"]);
+    store.dispose();
+});
+
+test("unchanged latest sync and transient errors leave the exact snapshot untouched", async () => {
+    const pocket = host((_options, call) => {
+        if (call === 3) {
+            throw new Error("Offline");
+        }
+
+        return call === 4 ? page([99], null, 999) : page([1, 2], "older");
+    });
+    const store = createMessageStore(pocket);
+    await store.start();
+    const snapshot = store.getSnapshot();
+    let notifications = 0;
+    store.subscribe(() => notifications += 1);
+    assert.equal(await store.syncLatest(), true);
+    assert.equal(await store.syncLatest(), false);
+    assert.equal(await store.syncLatest(), false);
+    assert.equal(store.getSnapshot(), snapshot);
+    assert.equal(notifications, 1);
+    store.dispose();
+});
+
+test("latest sync deduplicates rows and updates changed message metadata in place", async () => {
+    const updated = { ...message(2), by: { id: "writer", name: "Renamed author" }, at: 123 };
+    const pocket = host((_options, call) => call === 1 ? page([1, 2]) : {
+        ...page([]), messages: [message(1), updated, updated, message(3)],
+    });
+    const store = createMessageStore(pocket);
+    await store.start();
+    const unchanged = store.getSnapshot().messages[1];
+    await store.syncLatest();
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["3", "2", "1"]);
+    assert.equal(store.getSnapshot().messages[1].by.name, "Renamed author");
+    assert.equal(store.getSnapshot().messages[2], unchanged);
+    store.dispose();
+});
+
+test("sync skips busy reads and concurrent syncs; manual pagination aborts a pending sync", async () => {
+    const initial = deferred();
+    const latest = deferred();
+    const older = deferred();
+    const pocket = host((_options, call) => [initial.promise, latest.promise, older.promise][call - 1]);
+    const store = createMessageStore(pocket);
+    const starting = store.start();
+    assert.equal(await store.syncLatest(), false);
+    initial.resolve(page([3], "older"));
+    await starting;
+    const snapshot = store.getSnapshot();
+    const syncing = store.syncLatest();
+    assert.equal(store.getSnapshot(), snapshot);
+    assert.equal(await store.syncLatest(), false);
+    const loading = store.loadMore();
+    assert.equal(pocket.requests[1].signal.aborted, true);
+    assert.equal(await store.syncLatest(), false);
+    assert.equal(pocket.requests.length, 3);
+    older.resolve(page([2], "oldest"));
+    await loading;
+    latest.resolve(page([99]));
+    assert.equal(await syncing, false);
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["3", "2"]);
+    store.dispose();
+});
+
+for (const action of ["refresh", "session switch", "dispose"]) {
+    test(`${action} aborts latest sync and discards its late response`, async () => {
+        const pending = deferred();
+        const pocket = host((_options, call) => {
+            if (call === 1) {
+                return page([1]);
+            }
+
+            return call === 2 ? pending.promise : page([20], null, action === "session switch" ? 2 : 1);
+        });
+        const store = createMessageStore(pocket);
+        await store.start();
+        const syncing = store.syncLatest();
+        await settle();
+
+        if (action === "refresh") {
+            await store.refresh();
+        } else if (action === "session switch") {
+            pocket.switchTo(2);
+            await settle();
+        } else {
+            store.dispose();
+        }
+
+        assert.equal(pocket.requests[1].signal.aborted, true);
+        const snapshot = store.getSnapshot();
+        pending.resolve(page([99]));
+        assert.equal(await syncing, false);
+        assert.equal(store.getSnapshot(), snapshot);
+        assert.deepEqual(snapshot.messages.map((item) => item.id), action === "dispose" ? [] : ["20"]);
+        store.dispose();
+    });
+}
+
+test("latest sync replaces a disconnected history window and resets pagination", async () => {
+    const pages = [page([3, 4], "older"), page([1, 2], "oldest"), page([8, 9], "new-older"), page([6, 7], "older")];
+    const pocket = host(() => pages.shift());
+    const store = createMessageStore(pocket, { pageSize: 2 });
+    await store.start();
+    await store.loadMore();
+    await store.syncLatest();
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["9", "8"]);
+    assert.equal(store.getSnapshot().before, "new-older");
+    assert.match(store.getSnapshot().notice, /newest messages/i);
+    await store.loadMore();
+    assert.equal(pocket.requests[3].before, "new-older");
+    assert.equal(store.getSnapshot().error, null);
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["9", "8", "7", "6"]);
+    store.dispose();
+});
+
+test("a complete latest page removes old context rows, including an empty reset", async () => {
+    const pages = [page([2, 3], "older"), page([1]), page([3]), page([]), page([]), page([4])];
+    const pocket = host(() => pages.shift());
+    const store = createMessageStore(pocket, { pageSize: 2 });
+    await store.start();
+    await store.loadMore();
+    await store.syncLatest();
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["3"]);
+    assert.equal(store.getSnapshot().before, null);
+    await store.syncLatest();
+    assert.deepEqual(store.getSnapshot().messages, []);
+    const empty = store.getSnapshot();
+    await store.syncLatest();
+    assert.equal(store.getSnapshot(), empty);
+    await store.syncLatest();
+    assert.deepEqual(store.getSnapshot().messages.map((item) => item.id), ["4"]);
+    store.dispose();
 });

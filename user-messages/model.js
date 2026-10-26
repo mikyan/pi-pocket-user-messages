@@ -46,6 +46,12 @@ const emptyState = (conversationId = null, notice = null) => ({
     notice,
 });
 
+function sameMessage(left, right) {
+    return left?.id === right.id && left.text === right.text && left.at === right.at &&
+        left.clipped === right.clipped && left.by?.id === right.by?.id &&
+        left.by?.name === right.by?.name;
+}
+
 /**
  * Own one store per mounted outline. No text is persisted or sent to other services.
  * subscribe(listener) immediately supplies the current immutable snapshot.
@@ -58,6 +64,7 @@ export function createMessageStore(pocket, { pageSize = 100 } = {}) {
     let state = Object.freeze(emptyState());
     let generation = 0;
     let controller = null;
+    let syncController = null;
     let started = false;
     let disposed = false;
     let unsubscribeConversation = null;
@@ -77,6 +84,12 @@ export function createMessageStore(pocket, { pageSize = 100 } = {}) {
         generation += 1;
         controller?.abort();
         controller = null;
+        stopSync();
+    }
+
+    function stopSync() {
+        syncController?.abort();
+        syncController = null;
     }
 
     function isCurrent(token, conversationId) {
@@ -103,6 +116,8 @@ export function createMessageStore(pocket, { pageSize = 100 } = {}) {
             return false;
         }
 
+        // Explicit history reads take priority over a background newest-page read.
+        stopSync();
         const request = new AbortController();
         controller = request;
         publish({ loading: true, error: null });
@@ -203,6 +218,81 @@ export function createMessageStore(pocket, { pageSize = 100 } = {}) {
         return firstLoad;
     }
 
+    /** Quietly keep a long-lived outline current without resetting its older pages. */
+    async function syncLatest() {
+        if (disposed || !started || state.conversationId === null || state.loading || state.loadingAll || syncController !== null) {
+            return false;
+        }
+
+        const token = generation;
+        const conversationId = state.conversationId;
+        const request = new AbortController();
+        syncController = request;
+
+        try {
+            const page = await pocket.messages({ before: null, limit: pageSize, signal: request.signal });
+
+            if (!isCurrent(token, conversationId) || request.signal.aborted ||
+                page.conversationId !== conversationId || !Array.isArray(page.messages) ||
+                !(page.before === null || typeof page.before === "string")) {
+                return false;
+            }
+
+            const loaded = new Map(state.messages.map((message, index) => [message.id, index]));
+            const seen = new Set();
+            const newest = [];
+
+            for (const message of [...page.messages].reverse()) {
+                if (!seen.has(message.id)) {
+                    seen.add(message.id);
+                    const previous = state.messages[loaded.get(message.id)];
+                    newest.push(sameMessage(previous, message) ? previous : message);
+                }
+            }
+
+            const overlaps = state.messages.slice(0, pageSize).some((message) => seen.has(message.id));
+            // A null cursor means this page is the whole current context, even
+            // when a compaction kept some messages from the previous context.
+            const keepOlder = overlaps && page.before !== null;
+            const lastKnown = newest.findLast((message) => loaded.has(message.id));
+            const older = keepOlder
+                ? state.messages.slice(loaded.get(lastKnown.id) + 1).filter((message) => !seen.has(message.id))
+                : [];
+            const messages = [...newest, ...older];
+            const before = keepOlder ? state.before : page.before;
+            const notice = !overlaps && state.messages.length > 0
+                ? "The newest history changed. Reloaded the newest messages; load older messages again."
+                : state.notice;
+            const error = hasPage ? state.error : null;
+            const messagesChanged = messages.length !== state.messages.length ||
+                messages.some((message, index) => message !== state.messages[index]);
+
+            if (!keepOlder) {
+                usedCursors.clear();
+            }
+
+            hasPage = true;
+
+            if (messagesChanged || before !== state.before || notice !== state.notice || error !== state.error) {
+                publish({
+                    messages: messagesChanged ? Object.freeze(messages) : state.messages,
+                    before,
+                    notice,
+                    error,
+                });
+            }
+
+            return true;
+        } catch {
+            // Background failures leave the current list and manual retry state alone.
+            return false;
+        } finally {
+            if (syncController === request) {
+                syncController = null;
+            }
+        }
+    }
+
     async function loadMore() {
         if (disposed || state.loading || state.loadingAll || (hasPage && state.before === null)) {
             return false;
@@ -278,6 +368,7 @@ export function createMessageStore(pocket, { pageSize = 100 } = {}) {
         },
         start,
         refresh: () => reset(state.conversationId),
+        syncLatest,
         loadMore,
         loadAll,
         cancelLoadAll,

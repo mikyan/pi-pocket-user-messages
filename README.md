@@ -1,17 +1,22 @@
 # Pi Pocket User Messages
 
-A small, dependency-free Pi Pocket extension for browsing user prompts and jumping to a useful fork point.
+A small, dependency-free Pi Pocket sidebar for browsing user prompts and jumping to a useful fork point.
 
 为 [Pi Pocket](https://github.com/TannerMidd/pi-pocket) 增加 **Your messages**：只看当前会话中的用户消息，快速定位要继续或分叉的位置。对应 [issue #149](https://github.com/TannerMidd/pi-pocket/issues/149)，无需修改 Pi Pocket 核心。
 
 ## 功能
 
-- 从菜单、启动器或会话顶部按钮打开消息列表。
+- 从菜单、启动器、会话顶部按钮或 Places 打开 **常驻消息侧栏**。
+- 桌面端与聊天并排显示，点击消息跳转后保持展开；切换会话和刷新网页后继续显示。
 - 按新到旧排列，显示短预览、时间和作者；包含本会话中其他参与者的用户消息。
 - 输入多个词筛选已加载的消息。
 - 分页加载较早消息，也可以加载全部；加载全部时可取消。
-- 刷新列表；切换会话时清除旧会话的数据，并忽略过期请求结果。
-- 点击一条消息，关闭列表并跳转、高亮原消息。桌面和手机均可使用。
+- 侧栏可见时每 5 秒检查新消息，保留已加载的历史；也可手动刷新。切换会话时清除旧会话的数据，并忽略过期请求结果。
+- 点击消息跳转、高亮原消息。小于 1100px 的窗口使用 Pi Pocket 原生覆盖面板，点击消息后收起，露出聊天。
+
+首次打开后，Pi Pocket 会在当前标签页中记住侧栏的展开状态。可随时手动关闭；Files、Browser、People 和扩展侧栏共用一个位置，打开其他面板会替换它。
+
+![常驻消息侧栏](docs/images/sidebar-desktop.png)
 
 插件只负责查找和跳转。要分叉，跳转后再次点击原消息，使用 Pi Pocket 已有的 **Edit and send again** 操作；插件不会直接发送消息或创建分叉。
 
@@ -21,7 +26,7 @@ A small, dependency-free Pi Pocket extension for browsing user prompts and jumpi
 - 在运行 Pi Pocket 的机器上安装；通过手机访问时，也安装到服务器的数据目录。
 - 使用 Pi Pocket 支持的 Node.js 版本（当前要求 22.19 或更新版本）。
 
-使用的是公开的 `pocket.messages`、`pocket.reveal` 和 `pocket.onConversation` 接口。这些接口目前标记为 experimental；升级 Pi Pocket 后建议检查一次列表与跳转功能。
+使用的是公开的 `pocket.panel`、`pocket.messages`、`pocket.reveal` 和 `pocket.onConversation` 接口。这些接口目前标记为 experimental；升级 Pi Pocket 后建议检查一次侧栏与跳转功能。
 
 ## 安装
 
@@ -87,12 +92,12 @@ node scripts/check-install.mjs
 
 ## 使用
 
-1. 打开一个会话，选择 **Your messages**。也可按 Ctrl+K / ⌘+K，在启动器中搜索它。
+1. 打开一个会话，选择 **Your messages**，侧栏会保持展开。也可按 Ctrl+K / ⌘+K，在启动器中搜索它。
 2. 浏览最新消息，或输入关键词筛选。
 3. 查找较早的提示词时，选择加载更早消息或加载全部。筛选只覆盖已经加载的消息。
-4. 点击目标消息返回会话，再使用原消息的编辑重发操作选择分叉点。
+4. 点击目标消息在旁边的会话中定位，再使用原消息的编辑重发操作选择分叉点。侧栏保留当前筛选和已加载的历史，可接着跳转其他消息。
 
-新增消息后可点击刷新，重新获取当前会话的消息列表。
+新增消息会在下一次自动检查时加入列表。隐藏标签页和关闭侧栏后停止检查；重新显示标签页时立即检查。手动 Refresh 会重新加载最新一页。如果会话历史被重置，或新消息太多而无法与已加载历史衔接，侧栏会提示并重新从最新一页开始。
 
 ## 数据范围与限制
 
@@ -104,7 +109,7 @@ node scripts/check-install.mjs
 - 列表展示的是会话中所有人的用户消息，并非只显示当前登录者的消息。
 - 扩展对能查看所有会话的已登录用户开放；仅受邀访问单个会话的用户无法加载此类浏览器扩展，这是 Pi Pocket 的权限规则。分叉仍要求相应的操作权限。
 
-消息只在列表打开期间保存在浏览器内存中；不写入浏览器持久存储，不请求外部服务，也不调用模型。访问范围由 Pi Pocket 自身检查。
+消息只在侧栏打开期间保存在浏览器内存中；不写入浏览器持久存储，不请求外部服务，也不调用模型。侧栏的展开状态由 Pi Pocket 保存到当前标签页的 sessionStorage。访问范围由 Pi Pocket 自身检查。
 
 ## 开发与验证
 
