@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { install, parseArgs } from "../scripts/install.mjs";
 
 async function fixture(t) {
@@ -21,6 +21,31 @@ async function fixture(t) {
     await fs.writeFile(join(sourceRoot, "private.txt"), "do not install");
 
     return { root, sourceRoot, dataDir };
+}
+
+const directoryLinkType = process.platform === "win32" ? "junction" : "dir";
+
+// File symlinks require privileges on Windows. Exercise the same lstat boundary
+// there when unavailable; directory junction tests below still use real links.
+async function fileLinkFs(source, target) {
+    try {
+        await fs.symlink(source, target);
+
+        return fs;
+    } catch (error) {
+        if (process.platform !== "win32" || error.code !== "EPERM") {
+            throw error;
+        }
+
+        return {
+            ...fs,
+            async lstat(path) {
+                return resolve(path) === resolve(target)
+                    ? { isSymbolicLink: () => true }
+                    : fs.lstat(path);
+            },
+        };
+    }
 }
 
 test("installs only extension runtime files and leaves other extensions alone", async (t) => {
@@ -92,9 +117,38 @@ test("rejects a symbolic-link extensions directory", async (t) => {
 
     await fs.mkdir(elsewhere);
     await fs.mkdir(context.dataDir);
-    await fs.symlink(elsewhere, join(context.dataDir, "extensions"), "dir");
+    await fs.symlink(elsewhere, join(context.dataDir, "extensions"), directoryLinkType);
     await assert.rejects(install(context), /symbolic-link/);
     assert.deepEqual(await fs.readdir(elsewhere), []);
+});
+
+test("rejects a linked data-directory ancestor before writing through it", async (t) => {
+    const context = await fixture(t);
+    const elsewhere = join(context.root, "elsewhere");
+    const linkedParent = join(context.root, "linked-parent");
+
+    await fs.mkdir(elsewhere);
+    await fs.symlink(elsewhere, linkedParent, directoryLinkType);
+    await assert.rejects(
+        install({ ...context, dataDir: join(linkedParent, "new-data") }),
+        /symbolic-link/,
+    );
+    assert.deepEqual(await fs.readdir(elsewhere), []);
+});
+
+test("rejects a linked source ancestor before creating the destination", async (t) => {
+    const context = await fixture(t);
+    const sourceParent = join(context.root, "source-parent");
+    const linkedParent = join(context.root, "linked-parent");
+
+    await fs.mkdir(sourceParent);
+    await fs.rename(context.sourceRoot, join(sourceParent, "source"));
+    await fs.symlink(sourceParent, linkedParent, directoryLinkType);
+    await assert.rejects(
+        install({ ...context, sourceRoot: join(linkedParent, "source") }),
+        /symbolic-link/,
+    );
+    await assert.rejects(fs.stat(context.dataDir), { code: "ENOENT" });
 });
 
 test("rejects symbolic-link module targets even with --force", async (t) => {
@@ -104,8 +158,9 @@ test("rejects symbolic-link module targets even with --force", async (t) => {
 
     await fs.mkdir(extensions, { recursive: true });
     await fs.writeFile(elsewhere, "untouched");
-    await fs.symlink(elsewhere, join(extensions, "user-messages.ts"));
-    await assert.rejects(install({ ...context, force: true }), /symbolic-link/);
+    const linkedFs = await fileLinkFs(elsewhere, join(extensions, "user-messages.ts"));
+
+    await assert.rejects(install({ ...context, force: true, fs: linkedFs }), /symbolic-link/);
     assert.equal(await fs.readFile(elsewhere, "utf8"), "untouched");
 });
 
@@ -115,8 +170,9 @@ test("rejects missing or linked source assets before touching the destination", 
 
     await fs.rm(file);
     await assert.rejects(install(context), /regular file/);
-    await fs.symlink(join(context.sourceRoot, "private.txt"), file);
-    await assert.rejects(install(context), /regular file/);
+    const linkedFs = await fileLinkFs(join(context.sourceRoot, "private.txt"), file);
+
+    await assert.rejects(install({ ...context, fs: linkedFs }), /regular file/);
     await assert.rejects(fs.stat(context.dataDir), { code: "ENOENT" });
 });
 
