@@ -1,0 +1,39 @@
+package.json
+  s_31bec9b2ab90a8::t_57a73ddec813c9 3,11
+  s_31bec9b2ab90a8::t_f7b60b21938b20 12-13
+test/integration.test.mjs
+  s_31bec9b2ab90a8::t_f7b60b21938b20 1-153
+scripts/install.mjs
+  s_31bec9b2ab90a8::t_1d51a947112ab7 4,27
+docs/validation.md
+  s_31bec9b2ab90a8::t_cab73e473057ee 1-47,51-61
+  s_31bec9b2ab90a8::t_8afbd79f4a11a3 48-50
+user-messages/index.js
+  s_31bec9b2ab90a8::t_57a73ddec813c9 21
+README.md
+  s_31bec9b2ab90a8::t_57a73ddec813c9 20
+  s_31bec9b2ab90a8::t_cab73e473057ee 94,96-105
+test/install.test.js
+  s_31bec9b2ab90a8::t_97cdb71960554f 5,26-50,120,125-153,161-163,173-175
+.github/workflows/test.yml
+  s_31bec9b2ab90a8::t_57a73ddec813c9 7,10
+scripts/serve-integration.mjs
+  s_31bec9b2ab90a8::t_cfcb28f8fc4dd4 1-49,53,56,58-200
+  s_31bec9b2ab90a8::t_fb282c51c548bf 50-52,54-55,57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "development:1.7.3",
+  "base_commit_sha": "4211adca933b9c18f77803a073de3adbe8cb3f69",
+  "prompts": {},
+  "sessions": {
+    "s_31bec9b2ab90a8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17603-bc67-78b3-a456-d05e5089ea03",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "AI_BA <ai_ball@outlook.com>"
+    }
+  }
+}
