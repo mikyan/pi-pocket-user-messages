@@ -17,7 +17,7 @@ A small, dependency-free Pi Pocket extension for browsing user prompts and jumpi
 
 ## 要求
 
-- Pi Pocket **0.20.0 或更新版本**。
+- Pi Pocket **0.21.0 或更新版本**（会话菜单分组从 0.21.0 起提供）。
 - 在运行 Pi Pocket 的机器上安装；通过手机访问时，也安装到服务器的数据目录。
 - 使用 Pi Pocket 支持的 Node.js 版本（当前要求 22.19 或更新版本）。
 
@@ -91,9 +91,18 @@ npm run check
 npm test
 ```
 
-运行时和测试均不需要第三方 npm 依赖。自动化测试覆盖分页、会话切换与过期请求、取消、游标恢复、导航、安装备份和失败回滚；CI 在 Node.js 22 和 24 上运行。修改浏览器模块后，可重新安装并刷新 Pi Pocket 页面检查效果。
+运行时和单元测试均不需要第三方 npm 依赖。自动化测试覆盖分页、会话切换与过期请求、取消、游标恢复、导航、安装备份、Windows junction 路径和失败回滚；CI 配置覆盖 Linux / Windows 上的 Node.js 22 和 24。
 
-首版已在 Node.js 24 上通过语法检查和 26 项自动化测试。当前开发环境没有运行中的 Pi Pocket 实例，尚未完成真实会话中的桌面、手机及编辑重发联调。安装后建议用一段较长会话检查：筛选 → 加载更早消息 → 跳转 → 点击原消息 → Edit and send again。
+真实服务联调需要旁边有一份已安装依赖的 Pi Pocket 源码，默认路径为 `../pi-pocket`，也可通过 `PI_POCKET_SOURCE` 指定。
+
+```sh
+npm run test:integration
+npm run test:serve -- --source /path/to/pi-pocket
+```
+
+前者运行真实 HTTP 集成测试并自动清理；后者启动本机测试实例并打印登录链接，供浏览器操作。两者均使用临时数据和本地脚本模型，不使用已有会话或模型账号。测试实例包含 205 条用户消息、中文、长消息、多位作者、另一会话及空会话；修改插件源码会自动同步到测试实例。按 Ctrl+C 关闭并清理临时数据。
+
+2026-10-26 已在 Windows / Node.js 24.14.1 / Pi Pocket 0.21.0 上通过 28 项单元测试和 6 项真实服务集成测试，并在本机 Edge 完成分页、筛选、跳转、编辑重发分叉和只读权限联调。390×844 手机尺寸检查通过；尚未验证实体手机、iOS Safari 或移动端软键盘。详细证据和复现步骤见 [验证记录](docs/validation.md)。
 
 实现背景、现成方案检索和接口依据见 [调研记录](docs/research.md)。
 

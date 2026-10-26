@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as nodeFs from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, parse, resolve } from "node:path";
+import { basename, dirname, join, parse, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const moduleName = "user-messages";
@@ -24,7 +24,7 @@ async function statOrNull(path, fs) {
 async function checkPath(path, fs) {
     let current = parse(path).root;
 
-    for (const part of path.slice(current.length).split("/").filter(Boolean)) {
+    for (const part of path.slice(current.length).split(sep).filter(Boolean)) {
         current = join(current, part);
         const stat = await statOrNull(current, fs);
 

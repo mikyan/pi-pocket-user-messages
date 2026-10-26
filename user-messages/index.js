@@ -18,7 +18,7 @@ export default function setup(pocket) {
 
     function YourMessages() {
         if (!supported) {
-            return html`<p class="error-box">Your messages requires Pi Pocket 0.20.0 or newer.</p>`;
+            return html`<p class="error-box">Your messages requires Pi Pocket 0.21.0 or newer.</p>`;
         }
 
         const [store] = useState(() => createMessageStore(pocket));
