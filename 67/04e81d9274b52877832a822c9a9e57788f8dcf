@@ -1,0 +1,19 @@
+docs/validation.md
+  s_31bec9b2ab90a8::t_2a1e48a62eb4bf 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "development:1.7.3",
+  "base_commit_sha": "6704e81d9274b52877832a822c9a9e57788f8dcf",
+  "prompts": {},
+  "sessions": {
+    "s_31bec9b2ab90a8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17603-bc67-78b3-a456-d05e5089ea03",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "AI_BA <ai_ball@outlook.com>"
+    }
+  }
+}
