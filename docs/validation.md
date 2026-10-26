@@ -23,7 +23,7 @@
 
 真实 HTTP 集成测试覆盖登录、扩展资源内容和 MIME、未登录和 viewer 访问、205 条消息按 100/100/5 分页、作者映射、Unicode 与长文本、不同会话及空会话，以及 New context 使旧游标返回 409。HTTP 原始消息没有浏览器 API 的 `clipped` 字段，摘录标记由下面的界面测试验证。
 
-CI 已新增 Windows / Linux × Node.js 22 / 24 矩阵。本次结果来自本地执行，不表示新增远程 CI 已执行。
+远程 [CI 40273422619](https://github.com/mikyan/pi-pocket-user-messages/actions/runs/40273422619) 已在提交 `4211adc` 上通过 Windows / Linux × Node.js 22 / 24 全部四项任务；每项执行语法检查与 28 项单元测试。真实服务集成测试及界面测试在本机执行。
 
 ## 真实界面结果
 
