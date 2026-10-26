@@ -1,6 +1,6 @@
 {
   "name": "pi-pocket-user-messages",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "A user-message timeline and fork-point navigator for Pi Pocket",
   "type": "module",
@@ -8,7 +8,8 @@
   "engines": { "node": ">=22.19" },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check user-messages.ts && node --check user-messages/index.js && node --check user-messages/model.js && node --check scripts/install.mjs && node --check scripts/serve-integration.mjs",
+    "check": "node --check user-messages.ts && node --check user-messages/index.js && node --check user-messages/model.js && node --check scripts/install.mjs && node --check scripts/check-install.mjs && node --check scripts/serve-integration.mjs",
+    "check:install": "node scripts/check-install.mjs",
     "test:serve": "node scripts/serve-integration.mjs",
     "test:integration": "node --test test/integration.test.mjs"
   }

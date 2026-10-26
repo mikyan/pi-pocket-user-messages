@@ -7,7 +7,7 @@ import { startIntegrationFixture } from "../scripts/serve-integration.mjs";
 // It runs the real HTTP server and extension loader, with disposable data and a
 // scripted model. Browser-only projection/reveal is covered by manual UI testing.
 test("User messages integrates with a real Pi Pocket server", { timeout: 120_000 }, async (t) => {
-    const fixture = await startIntegrationFixture({ port: 0, watchFiles: false, log: () => {} });
+    const fixture = await startIntegrationFixture({ port: 0, watchFiles: false, esm: true, log: () => {} });
     t.after(() => fixture.close());
     const { app, metadata } = fixture;
     const { base, sessions } = metadata;
