@@ -7,7 +7,7 @@
   "license": "MIT",
   "engines": { "node": ">=22.19" },
   "scripts": {
-    "test": "node --test --test-isolation=none test/*.test.js",
+    "test": "node --test test/*.test.js",
     "check": "node --check user-messages.ts && node --check user-messages/index.js && node --check user-messages/model.js && node --check scripts/install.mjs"
   }
 }
